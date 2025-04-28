@@ -1,45 +1,32 @@
-﻿using System.Text;
+﻿using LoadTest.Entities;
+using System.Text;
 using System.Text.Json;
 
 namespace LoadTest.UseCases;
-public class CheckEndPoint
+public static class CheckEndPoint
 {
-    public async Task<bool> SendReq()
+    public static async Task<bool> SendRequest(this RequestConfig requestConfig)
     {
-        //should read from appsetting
-        string url = "http://beta-kube-hap1.asax.local:31230/Contact/v1/Device/AddDeviceByCcms";
-        string token = "Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJuYW1laWQiOiJBUmxBbDF2TWVsWnJrbDZsY0VPdFZnPT0iLCJuYmYiOjE3NDU3NTk5NDUsImV4cCI6MTc0NTc2MzU0NSwiaWF0IjoxNzQ1NzU5OTQ1fQ.";
-
-        //should to move to config
         var httpClient = new HttpClient();
 
-        //should read from appsetting
-        var payload = new
+         var jsonPayload = JsonSerializer.Serialize(requestConfig.Payload);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, requestConfig.Url)
         {
-            playerID = "t",
-            ccmsCode = 1,
-            fcmToken = "1",
-            applicationName = "1",
-            platform = "1",
-            os = "1",
-            osVersion = "1",
-            clientModel = "1",
-            appVersion = "1",
-            appVersionCode = 1,
-            publishedStore = "1"
+            Content = new StringContent(
+                jsonPayload,
+                requestConfig.EncodingType ?? Encoding.UTF8,  
+                requestConfig.ContentType ?? "application/json" 
+            )
         };
 
-        var jsonPayload = JsonSerializer.Serialize(payload);
-
-        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        if(requestConfig.Headers is not null)
         {
-            Headers =
+            foreach (var header in requestConfig.Headers)
             {
-                { "accept", "*/*" },
-                { "Authorization", $"{token}" }
-            },
-            Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
-        };
+                request.Headers.Add(header.Key, header.Value);
+            }
+        }
 
         try
         {
@@ -51,17 +38,20 @@ public class CheckEndPoint
                 Console.WriteLine("Request successful");
                 var responseContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Response: {responseContent}");
+
                 return true;
             }
             else
             {
                 Console.WriteLine($"Request failed with status code: {response.StatusCode}");
+
                 return false;
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error occurred: {ex.Message}");
+
             return false;
         }
     }
