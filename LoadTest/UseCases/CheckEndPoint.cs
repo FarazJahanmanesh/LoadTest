@@ -1,28 +1,36 @@
 ﻿using LoadTest.Entities;
 using System.Text;
 using System.Text.Json;
+using System.Net.Http.Headers;
+using LoadTest.Factory;
 
 namespace LoadTest.UseCases;
 public static class CheckEndPoint
 {
-    public static async Task<bool> SendRequest(this RequestConfig requestConfig)
+    public static async Task<bool> SendRequest(this Configs Configs)
     {
-        var httpClient = new HttpClient();
 
-         var jsonPayload = JsonSerializer.Serialize(requestConfig.Payload);
+        var httpClient = HttpClientFactory.CreateHttpClient(Configs);
 
-        var request = new HttpRequestMessage(HttpMethod.Post, requestConfig.Url)
+        var jsonPayload = JsonSerializer.Serialize(Configs.RequestConfig.Payload);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, Configs.RequestConfig.Url);
+
+        var encoding = Configs.RequestConfig.EncodingType ?? Encoding.UTF8;
+        var contentType = Configs.RequestConfig.ContentType ?? "application/json";
+
+        if (!string.IsNullOrWhiteSpace(jsonPayload) && jsonPayload != "{}")
         {
-            Content = new StringContent(
-                jsonPayload,
-                requestConfig.EncodingType ?? Encoding.UTF8,  
-                requestConfig.ContentType ?? "application/json" 
-            )
-        };
-
-        if(requestConfig.Headers is not null)
+            request.Content = new StringContent(jsonPayload, encoding, contentType);
+        }
+        else
         {
-            foreach (var header in requestConfig.Headers)
+            request.Content = new StringContent(string.Empty, encoding, contentType);
+        }
+
+        if (Configs.RequestConfig.Headers is not null)
+        {
+            foreach (var header in Configs.RequestConfig.Headers)
             {
                 request.Headers.Add(header.Key, header.Value);
             }
@@ -34,7 +42,6 @@ public static class CheckEndPoint
 
             if (response.IsSuccessStatusCode)
             {
-                //should have logger
                 Console.WriteLine("Request successful");
                 var responseContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Response: {responseContent}");
