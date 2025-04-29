@@ -1,6 +1,6 @@
 ﻿using LoadTest.Entities;
 
-namespace LoadTest.Factory;
+namespace LoadTest.Extensions;
 public static class HttpClientFactory
 {
     public static HttpClient CreateHttpClient(Configs configs)

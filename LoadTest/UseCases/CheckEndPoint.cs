@@ -1,8 +1,8 @@
 ﻿using LoadTest.Entities;
+using LoadTest.Extensions;
+using Serilog;
 using System.Text;
 using System.Text.Json;
-using System.Net.Http.Headers;
-using LoadTest.Factory;
 
 namespace LoadTest.UseCases;
 public static class CheckEndPoint
@@ -10,22 +10,32 @@ public static class CheckEndPoint
     public static async Task<bool> SendRequest(this Configs Configs)
     {
 
-        var httpClient = HttpClientFactory.CreateHttpClient(Configs);
+        LoggerHelper.ConfigureLogger("logs/loadtest_log.txt",
+            rollingInterval: RollingInterval.Day);
 
-        var jsonPayload = JsonSerializer.Serialize(Configs.RequestConfig.Payload);
+        HttpClient httpClient = HttpClientFactory.CreateHttpClient(Configs);
 
-        var request = new HttpRequestMessage(HttpMethod.Post, Configs.RequestConfig.Url);
+        string jsonPayload = JsonSerializer.Serialize(Configs.RequestConfig.Payload);
 
-        var encoding = Configs.RequestConfig.EncodingType ?? Encoding.UTF8;
-        var contentType = Configs.RequestConfig.ContentType ?? "application/json";
+        Log.Information($"request payload : {jsonPayload}");
+
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, Configs.RequestConfig.Url);
+
+        Encoding encoding = Configs.RequestConfig.EncodingType ?? Encoding.UTF8;
+        string contentType = Configs.RequestConfig.ContentType ?? "application/json";
+
+        Log.Information($"EncodingType from Configs : {Configs.RequestConfig.EncodingType}");
+        Log.Information($"contentType from Configs : {Configs.RequestConfig.ContentType}");
 
         if (!string.IsNullOrWhiteSpace(jsonPayload) && jsonPayload != "{}")
         {
             request.Content = new StringContent(jsonPayload, encoding, contentType);
+            Log.Information($"request content : {request.Content.ToString()}");
         }
         else
         {
             request.Content = new StringContent(string.Empty, encoding, contentType);
+            Log.Information($"request content : {request.Content.ToString()}");
         }
 
         if (Configs.RequestConfig.Headers is not null)
@@ -33,6 +43,7 @@ public static class CheckEndPoint
             foreach (var header in Configs.RequestConfig.Headers)
             {
                 request.Headers.Add(header.Key, header.Value);
+                Log.Information($"request header added by key : {header.Key} and value : {header.Value}");
             }
         }
 
@@ -40,24 +51,25 @@ public static class CheckEndPoint
         {
             var response = await httpClient.SendAsync(request);
 
+            Log.Information($"response : {response}");
+
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine("Request successful");
+                Log.Information($"Request successful with StatusCode: {response.StatusCode}");
                 var responseContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Response: {responseContent}");
-
+                Log.Information($"Response Content: {responseContent}");
                 return true;
             }
             else
             {
-                Console.WriteLine($"Request failed with status code: {response.StatusCode}");
+                Log.Error($"Request failed with status code: {response.StatusCode}");
 
                 return false;
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error occurred: {ex.Message}");
+            Log.Error($"Error occurred: {ex.Message}");
 
             return false;
         }
